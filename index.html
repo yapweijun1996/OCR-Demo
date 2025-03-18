@@ -1,0 +1,393 @@
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title>OCR Demo Enhanced</title>
+		<style>
+			/* Global Styles */
+			* {
+				box-sizing: border-box;
+				margin: 0;
+				padding: 0;
+			}
+			
+			body {
+				font-family: 'Roboto', sans-serif;
+				background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+				color: #333;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				min-height: 100vh;
+				padding: 20px;
+			}
+			
+			.container {
+				background-color: #fff;
+				width: 100%;
+				max-width: 800px;
+				border-radius: 10px;
+				padding: 30px;
+				box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+			}
+			
+			.header {
+				text-align: center;
+				margin-bottom: 20px;
+			}
+			
+			.header h1 {
+				font-size: 2rem;
+				margin-bottom: 10px;
+				color: #2c3e50;
+			}
+			
+			.header p {
+				font-size: 1rem;
+				color: #7f8c8d;
+			}
+			
+			.upload-section {
+				text-align: center;
+				margin: 20px 0;
+				position: relative;
+				border: 2px dashed transparent;
+				padding: 20px;
+				border-radius: 5px;
+				transition: border 0.3s ease;
+			}
+			
+			.upload-section.dragover {
+				border-color: #3498db;
+				background-color: #ecfaff;
+			}
+			
+			.custom-file-upload {
+				border: 2px solid #3498db;
+				display: inline-block;
+				padding: 10px 20px;
+				cursor: pointer;
+				color: #3498db;
+				border-radius: 5px;
+				transition: background 0.3s, color 0.3s;
+				font-weight: 500;
+			}
+			
+			.custom-file-upload:hover {
+				background: #3498db;
+				color: #fff;
+			}
+			
+			input[type="file"] {
+				display: none;
+			}
+			
+			.image-section {
+				text-align: center;
+				margin: 20px 0;
+			}
+			
+			.image-container, .processed-image-container {
+				display: inline-block;
+				border: 1px solid #ddd;
+				padding: 8px;
+				border-radius: 8px;
+				background-color: #f9f9f9;
+				margin: 10px;
+			}
+			
+			.image-container img, .processed-image-container img {
+				max-width: 100%;
+				height: auto;
+				display: block;
+				border-radius: 4px;
+			}
+			
+			.processed-image-container h3 {
+				margin-top: 10px;
+				font-size: 1rem;
+				color: #2c3e50;
+			}
+			
+			.progress-section {
+				margin: 20px 0;
+				text-align: center;
+			}
+			
+			.progress-section p {
+				font-size: 1rem;
+				margin-bottom: 10px;
+				color: #555;
+			}
+			
+			.progress-bar {
+				width: 100%;
+				background-color: #ecf0f1;
+				border-radius: 10px;
+				overflow: hidden;
+				height: 20px;
+			}
+			
+			.progress-bar div {
+				height: 100%;
+				width: 0;
+				background-color: #27ae60;
+				transition: width 0.3s ease;
+			}
+			
+			.result-section {
+				margin: 20px 0;
+			}
+			
+			.result-section h2 {
+				font-size: 1.5rem;
+				margin-bottom: 10px;
+				color: #2c3e50;
+			}
+			
+			.result {
+				background-color: #f4f4f4;
+				padding: 15px;
+				border-radius: 8px;
+				border: 1px solid #ddd;
+				white-space: pre-wrap;
+				max-height: 300px;
+				overflow-y: auto;
+				font-size: 1rem;
+				color: #333;
+			}
+			
+			footer {
+				text-align: center;
+				margin-top: 30px;
+				font-size: 0.9rem;
+				color: #aaa;
+			}
+			
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<header class="header">
+				<h1>OCR Demo Enhanced</h1>
+				<p>Upload an image and extract text with improved accuracy</p>
+			</header>
+			
+			<section class="upload-section" id="uploadSection">
+				<label for="fileInput" class="custom-file-upload">
+					Choose Image
+				</label>
+				<input type="file" accept="image/*" onchange="processImage(event)" id="fileInput">
+			</section>
+			
+			<section class="image-section" id="imageSection" style="display: none;">
+				<div class="image-container">
+					<img id="sourceImage" alt="Uploaded Image">
+				</div>
+				<div class="processed-image-container">
+					<h3>Enhanced Processed Image</h3>
+					<img id="processedImage" alt="Processed Image">
+				</div>
+			</section>
+			
+			<section class="progress-section" id="progressContainer" style="display: none;">
+				<p>Processing: <span id="progressText">0%</span>
+				</p>
+				<div class="progress-bar">
+					<div id="progressBar">
+					</div>
+				</div>
+			</section>
+			
+			<section class="result-section">
+				<h2>Detected Text</h2>
+				<pre id="result" class="result">
+				</pre>
+			</section>
+		</div>
+		
+		<script src="./tesseract.min.js">
+		</script>
+		
+		<script>
+			function processImage(event) {
+				const file = event.target.files[0];
+				if (!file) return;
+				
+				// Hide previous images and reset result
+				document.getElementById('imageSection').style.display = 'none';
+				document.getElementById('result').textContent = '';
+				const progressContainer = document.getElementById('progressContainer');
+				progressContainer.style.display = 'block';
+				updateProgress(0);
+				
+				const reader = new FileReader();
+				reader.onload = function(readerEvent) {
+					const img = new Image();
+					img.onload = function() {
+						// Display original source image
+						document.getElementById('sourceImage').src = readerEvent.target.result;
+						
+						// Create or get an offscreen canvas for image processing
+						let canvas = document.getElementById('processingCanvas');
+						if (!canvas) {
+							canvas = document.createElement('canvas');
+							canvas.id = 'processingCanvas';
+							canvas.style.display = 'none';
+							document.body.appendChild(canvas);
+						}
+						const context = canvas.getContext('2d');
+						
+						// Increase resolution to improve OCR accuracy
+						const scaleFactor = 3;
+						canvas.width = img.width * scaleFactor;
+						canvas.height = img.height * scaleFactor;
+						context.drawImage(img, 0, 0, canvas.width, canvas.height);
+						
+						// Get image data
+						let imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+						let data = imageData.data;
+						let totalBrightness = 0;
+						const pixelCount = data.length / 4;
+						
+						// Calculate average brightness
+						for (let i = 0; i < data.length; i += 4) {
+							const brightness = 0.34 * data[i] + 0.5 * data[i+1] + 0.16 * data[i+2];
+							totalBrightness += brightness;
+						}
+						const avgBrightness = totalBrightness / pixelCount;
+						// Adjust threshold multiplier to enhance contrast; slight tweak from 0.8 to 0.85
+						const threshold = avgBrightness * 0.85;
+						
+						// Convert to grayscale and apply adaptive thresholding
+						for (let i = 0; i < data.length; i += 4) {
+							const brightness = 0.34 * data[i] + 0.5 * data[i+1] + 0.16 * data[i+2];
+							const color = brightness < threshold ? 0 : 255;
+							data[i] = data[i+1] = data[i+2] = color;
+						}
+						
+						// Simple noise reduction using a median filter
+						const noiseReducedData = new Uint8ClampedArray(data);
+						for (let y = 1; y < canvas.height - 1; y++) {
+							for (let x = 1; x < canvas.width - 1; x++) {
+								const index = (y * canvas.width + x) * 4;
+								const neighbors = [];
+								for (let dy = -1; dy <= 1; dy++) {
+									for (let dx = -1; dx <= 1; dx++) {
+										const ni = ((y + dy) * canvas.width + (x + dx)) * 4;
+										neighbors.push(data[ni]);
+									}
+								}
+								neighbors.sort((a, b) => a - b);
+								const median = neighbors[4];
+								noiseReducedData[index] = noiseReducedData[index+1] = noiseReducedData[index+2] = median;
+							}
+						}
+						// Copy filtered data back
+						for (let i = 0; i < data.length; i++) {
+							data[i] = noiseReducedData[i];
+						}
+						
+						// Apply a simple sharpening filter using convolution
+						const sharpenKernel = [
+							0, -1, 0,
+							-1, 5, -1,
+							0, -1, 0
+						];
+						const copyData = new Uint8ClampedArray(data);
+						for (let y = 1; y < canvas.height - 1; y++) {
+							for (let x = 1; x < canvas.width - 1; x++) {
+								let sum = 0;
+								for (let ky = -1; ky <= 1; ky++) {
+									for (let kx = -1; kx <= 1; kx++) {
+										const weight = sharpenKernel[(ky+1)*3 + (kx+1)];
+										const ix = x + kx;
+										const iy = y + ky;
+										const index = (iy * canvas.width + ix) * 4;
+										sum += copyData[index] * weight; // since image is grayscale, one channel is enough
+									}
+								}
+								const idx = (y * canvas.width + x) * 4;
+								// Clamp the value between 0 and 255
+								const val = Math.min(Math.max(sum, 0), 255);
+								data[idx] = data[idx+1] = data[idx+2] = val;
+							}
+						}
+						
+						// Update canvas with processed data
+						context.putImageData(imageData, 0, 0);
+						
+						// Show processed image preview
+						const processedImageUrl = canvas.toDataURL('image/png');
+						document.getElementById('processedImage').src = processedImageUrl;
+						document.getElementById('imageSection').style.display = 'block';
+						
+						// Run OCR using Tesseract.js on the processed image
+						Tesseract.recognize(
+						processedImageUrl,
+						'eng',
+						{
+							tessedit_pageseg_mode: 6,
+							tessjs_create_pdf: '1'
+						}
+						).progress(function(progress) {
+							if (progress.status === 'recognizing text') {
+								const pct = Math.floor(progress.progress * 100);
+								updateProgress(pct);
+							}
+							console.log('OCR Progress:', progress);
+						}).then(function(result) {
+							console.log('Detected text:', result.text);
+							document.getElementById('result').textContent = result.text;
+						}).catch(function(error) {
+							console.error('OCR Error:', error);
+							document.getElementById('result').textContent = 'Error: ' + error;
+						}).finally(function() {
+							setTimeout(() => {
+								updateProgress(0);
+								progressContainer.style.display = 'none';
+							}, 1500);
+						});
+					};
+					img.onerror = function() {
+						console.error('Failed to load image');
+						document.getElementById('imageSection').style.display = 'none';
+					};
+					img.src = readerEvent.target.result;
+				};
+				reader.readAsDataURL(file);
+			}
+			
+			function updateProgress(percent) {
+				document.getElementById('progressText').textContent = percent + '%';
+				document.getElementById('progressBar').style.width = percent + '%';
+			}
+			
+			// Drag and drop functionality
+			const uploadSection = document.getElementById('uploadSection');
+			
+			uploadSection.addEventListener('dragover', function(event) {
+				event.preventDefault();
+				event.stopPropagation();
+				uploadSection.classList.add('dragover');
+			});
+			
+			uploadSection.addEventListener('dragleave', function(event) {
+				event.preventDefault();
+				event.stopPropagation();
+				uploadSection.classList.remove('dragover');
+			});
+			
+			uploadSection.addEventListener('drop', function(event) {
+				event.preventDefault();
+				event.stopPropagation();
+				uploadSection.classList.remove('dragover');
+				const dt = event.dataTransfer;
+				if (dt && dt.files && dt.files[0]) {
+					processImage({ target: { files: [dt.files[0]] } });
+				}
+			});
+			
+		</script>
+	</body>
+</html>
