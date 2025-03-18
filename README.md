@@ -36,6 +36,6 @@ Clone this repository and open `index.html` in your browser:
 
 
 ## Demo
-
+https://yapweijun1996.github.io/OCR-Demo/
 
 
